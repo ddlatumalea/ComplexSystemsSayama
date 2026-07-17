@@ -1,26 +1,35 @@
 from dataclasses import dataclass, field
+import numpy as np
 
 @dataclass
 class Model:
     a: float = 0.0005
     Z: float = 20
     K: float = 100
-    
+
     x0: float = 20
-    
+
     x: float = field(init=False)
     history: list[float] = field(init=False)
-    
+
     def initialize(self) -> None:
         self.x = self.x0
         self.history = [self.x]
-        
+
     def observe(self) -> None:
         self.history.append(self.x)
-        
+
     def update(self) -> None:
         self.x = self.x + (-self.a * (self.x - self.Z) * (self.x - self.K)) * self.x
-        
+
+    def growth_ratio(self, x: np.ndarray) -> np.ndarray:
+        """Proliferation rate a(x) = x_t / x_{t-1} as a function of abundance x."""
+        return 1 - self.a * (x - self.Z) * (x - self.K)
+
+    def net_growth_rate(self, x: np.ndarray) -> np.ndarray:
+        """Textbook net growth rate g(x) = a(x) - 1, zero at x = Z and x = K."""
+        return -self.a * (x - self.Z) * (x - self.K)
+
     def run(self, steps: int) -> list[float]:
         self.initialize()
         for _ in range(steps):
@@ -48,11 +57,26 @@ class SimulationWindow:
         self.window.setWindowTitle("Growth model with Allee effect")
         layout = QtWidgets.QVBoxLayout(self.window)
 
-        self.plot_widget = pg.PlotWidget()
-        self.plot_widget.setLabel("bottom", "t")
-        self.plot_widget.setLabel("left", "x")
-        self.curve = self.plot_widget.plot(symbol="o")
-        layout.addWidget(self.plot_widget)
+        self.graphics = pg.GraphicsLayoutWidget()
+        self.graphics.resize(900, 450)
+        layout.addWidget(self.graphics)
+
+        self.trajectory_plot = self.graphics.addPlot(title="Trajectory")
+        self.trajectory_plot.setLabel("bottom", "t")
+        self.trajectory_plot.setLabel("left", "x")
+        self.curve = self.trajectory_plot.plot(symbol="o")
+
+        self.rate_plot = self.graphics.addPlot(title="Proliferation rate")
+        self.rate_plot.setLabel("bottom", "x")
+        self.rate_plot.setLabel("left", "a(x)")
+        self.rate_curve = self.rate_plot.plot(pen="g")
+        self.rate_plot.addLine(y=1, pen=pg.mkPen("gray", style=pg.QtCore.Qt.PenStyle.DashLine))
+
+        self.growth_plot = self.graphics.addPlot(title="dN/dt")
+        self.growth_plot.setLabel("bottom", "x")
+        self.growth_plot.setLabel("left", "dN/dt = x * g(x)")
+        self.growth_curve = self.growth_plot.plot(pen="m")
+        self.growth_plot.addLine(y=0, pen=pg.mkPen("gray", style=pg.QtCore.Qt.PenStyle.DashLine))
 
         self.a_label = QtWidgets.QLabel()
         layout.addWidget(self.a_label)
@@ -111,7 +135,12 @@ class SimulationWindow:
     def _update_plot(self) -> None:
         history = self.model.run(self.steps)
         self.curve.setData(history)
-        self.plot_widget.setTitle(
+
+        x_range = np.linspace(0, self.model.K * 1.5, 300)
+        self.rate_curve.setData(x_range, self.model.growth_ratio(x_range))
+        self.growth_curve.setData(x_range, x_range * self.model.net_growth_rate(x_range))
+
+        self.trajectory_plot.setTitle(
             f"a = {self.model.a:.4f}, Z = {self.model.Z:.0f}, "
             f"K = {self.model.K:.0f}, x0 = {self.model.x0:.0f}"
         )
