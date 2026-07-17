@@ -26,9 +26,13 @@ class Model:
         """Proliferation rate a(x) = x_t / x_{t-1} as a function of abundance x."""
         return 1 - self.a * (x - self.Z) * (x - self.K)
 
-    def net_growth_rate(self, x: np.ndarray) -> np.ndarray:
-        """Textbook net growth rate g(x) = a(x) - 1, zero at x = Z and x = K."""
+    def per_capita_growth_rate(self, x: np.ndarray) -> np.ndarray:
+        """Per-capita growth rate g(x) = a(x) - 1, zero at x = Z and x = K."""
         return -self.a * (x - self.Z) * (x - self.K)
+
+    def absolute_growth_rate(self, x: np.ndarray) -> np.ndarray:
+        """Absolute growth rate dN/dt = x * g(x), zero at x = 0, Z, and K."""
+        return x * self.per_capita_growth_rate(x)
 
     def run(self, steps: int) -> list[float]:
         self.initialize()
@@ -66,17 +70,17 @@ class SimulationWindow:
         self.trajectory_plot.setLabel("left", "x")
         self.curve = self.trajectory_plot.plot(symbol="o")
 
-        self.rate_plot = self.graphics.addPlot(title="Proliferation rate")
-        self.rate_plot.setLabel("bottom", "x")
-        self.rate_plot.setLabel("left", "a(x)")
-        self.rate_curve = self.rate_plot.plot(pen="g")
-        self.rate_plot.addLine(y=1, pen=pg.mkPen("gray", style=pg.QtCore.Qt.PenStyle.DashLine))
+        self.growth_ratio_plot = self.graphics.addPlot(title="Proliferation rate")
+        self.growth_ratio_plot.setLabel("bottom", "x")
+        self.growth_ratio_plot.setLabel("left", "a(x)")
+        self.growth_ratio_curve = self.growth_ratio_plot.plot(pen="g")
+        self.growth_ratio_plot.addLine(y=1, pen=pg.mkPen("gray", style=pg.QtCore.Qt.PenStyle.DashLine))
 
-        self.growth_plot = self.graphics.addPlot(title="dN/dt")
-        self.growth_plot.setLabel("bottom", "x")
-        self.growth_plot.setLabel("left", "dN/dt = x * g(x)")
-        self.growth_curve = self.growth_plot.plot(pen="m")
-        self.growth_plot.addLine(y=0, pen=pg.mkPen("gray", style=pg.QtCore.Qt.PenStyle.DashLine))
+        self.dn_dt_plot = self.graphics.addPlot(title="dN/dt")
+        self.dn_dt_plot.setLabel("bottom", "x")
+        self.dn_dt_plot.setLabel("left", "dN/dt = x * g(x)")
+        self.dn_dt_curve = self.dn_dt_plot.plot(pen="m")
+        self.dn_dt_plot.addLine(y=0, pen=pg.mkPen("gray", style=pg.QtCore.Qt.PenStyle.DashLine))
 
         self.a_label = QtWidgets.QLabel()
         layout.addWidget(self.a_label)
@@ -137,8 +141,8 @@ class SimulationWindow:
         self.curve.setData(history)
 
         x_range = np.linspace(0, self.model.K * 1.5, 300)
-        self.rate_curve.setData(x_range, self.model.growth_ratio(x_range))
-        self.growth_curve.setData(x_range, x_range * self.model.net_growth_rate(x_range))
+        self.growth_ratio_curve.setData(x_range, self.model.growth_ratio(x_range))
+        self.dn_dt_curve.setData(x_range, self.model.absolute_growth_rate(x_range))
 
         self.trajectory_plot.setTitle(
             f"a = {self.model.a:.4f}, Z = {self.model.Z:.0f}, "
