@@ -162,7 +162,7 @@ def main() -> None:
 
     from pyqtgraph.Qt import QtWidgets
 
-    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    app = QtWidgets.QApplication.instance() or QtWidgets.xQApplication([])
     sim_window = SimulationWindow(model, steps=30)
     sim_window.show()
     app.exec()
